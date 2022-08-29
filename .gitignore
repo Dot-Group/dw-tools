@@ -1,0 +1,26 @@
+# IDE and Maven
+.idea/
+target/
+*.iml
+*.ipr
+*.iws
+out/
+dependency-reduced-pom.xml
+
+# Eclipse
+.settings/
+.classpath
+.project
+
+# OS X ignores
+.DS_Store
+
+# Misc
+logs/
+
+# Gradle
+.gradle/
+build/
+
+# MkDocs
+site/

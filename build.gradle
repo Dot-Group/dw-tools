@@ -1,0 +1,80 @@
+plugins {
+	id "java-library"
+	id "idea"
+	id "jacoco"
+}
+
+allprojects {
+    repositories {
+        mavenCentral()
+    }
+
+    group GROUP
+    version VERSION
+
+    project.ext {
+        dropwizardVersion = "2.1.1"
+        jooqVersion = "3.16.4"
+        jedisVersion = "3.0.1"
+
+        libs = [
+            testing: [
+                "junit:junit:4.12",
+                "org.mockito:mockito-all:1.10.19",
+                "com.google.truth:truth:0.46",
+            ],
+
+            dropwizardDb: "io.dropwizard:dropwizard-db:$dropwizardVersion",
+            jooq: "org.jooq:jooq:$jooqVersion",
+
+            dropwizardCore: "io.dropwizard:dropwizard-core:$dropwizardVersion",
+            jedis: "redis.clients:jedis:$jedisVersion",
+        ]
+    }
+}
+
+subprojects { sp ->
+
+	group = "ai.dot.dwtools"
+	description = ""
+	sourceCompatibility = "11"
+	targetCompatibility = "11"
+
+	repositories {
+		mavenCentral()
+	}
+
+    tasks.withType(JavaCompile) {
+        options.fork = true
+        options.incremental = true
+    }
+
+    test {
+        testLogging {
+            events "failed"
+            exceptionFormat "full"
+            showStackTraces true
+            showExceptions true
+            showCauses true
+        }
+    }
+}
+
+task codeCoverageReport(type: JacocoReport) {
+    executionData fileTree(project.rootDir.absolutePath).include("**/build/jacoco/*.exec")
+
+    subprojects.each {
+        sourceSets it.sourceSets.main
+    }
+
+    reports {
+        xml.enabled = true
+        xml.destination file("$buildDir/reports/jacoco/report.xml")
+        html.enabled = true
+        csv.enabled = false
+    }
+}
+
+codeCoverageReport.dependsOn {
+    subprojects*.test
+}

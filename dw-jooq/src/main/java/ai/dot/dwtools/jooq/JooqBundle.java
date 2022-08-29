@@ -1,0 +1,98 @@
+package ai.dot.dwtools.jooq;
+
+import ai.dot.dwtools.jooq.jersey.DSLContextFeature;
+import ai.dot.dwtools.jooq.jersey.LoggingDataAccessExceptionMapper;
+import io.dropwizard.ConfiguredBundle;
+import io.dropwizard.db.PooledDataSourceFactory;
+import io.dropwizard.setup.Bootstrap;
+import io.dropwizard.setup.Environment;
+import org.jooq.Configuration;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
+
+public abstract class JooqBundle<C extends io.dropwizard.Configuration>
+        implements ConfiguredBundle<C>, JooqConfiguration<C> {
+
+    private static final String DEFAULT_NAME = "jooq";
+
+    private final SortedMap<String,Configuration> jooqFactoryConfigurationMap = new TreeMap<>();
+
+    public void initialize(Bootstrap<?> bootstrap) {
+        // No bootstrap-phase action required.
+    }
+
+    @Override
+    public void run(C configuration, Environment environment) throws Exception {
+
+        // configure primary data source factory
+        configureDataSourceFactory(
+                configuration,
+                environment,
+                primaryDataSourceName(),
+                getDataSourceFactory(configuration));
+
+        // configure secondary data source factories
+        getSecondaryDataSourceFactories(configuration)
+                .entrySet()
+                .stream()
+                .forEach(
+                        e -> configureDataSourceFactory(
+                                configuration,
+                                environment,
+                                e.getKey(),
+                                e.getValue()
+                        )
+                );
+
+        environment.jersey().register(new DSLContextFeature(jooqFactoryConfigurationMap));
+        environment.jersey().register(new LoggingDataAccessExceptionMapper());
+    }
+
+    /**
+     * Override this method to change the default data source name.
+     */
+    public String primaryDataSourceName() {
+        return DEFAULT_NAME;
+    }
+
+    /**
+     * Override this method to use a non-default jOOQ configuration.
+     */
+    @Override
+    public JooqFactory getJooqFactory(C configuration) {
+        return new JooqFactory();
+    }
+
+    public Configuration getConfiguration() {
+        return jooqFactoryConfigurationMap.values().stream().findFirst().orElse(null);
+    }
+
+    public Map<String,Configuration> getConfigurationMap() {
+        return jooqFactoryConfigurationMap;
+    }
+
+    private void configureDataSourceFactory(
+            final C configuration,
+            final Environment environment,
+            final String name,
+            final PooledDataSourceFactory dataSourceFactory
+    ) throws RuntimeException {
+
+        try {
+            final JooqFactory jooqFactory = getJooqFactory(configuration);
+            final Configuration cfg = jooqFactory.build(environment, dataSourceFactory, name);
+
+            if (dataSourceFactory.getValidationQuery().isPresent()) {
+                final JooqHealthCheck healthCheck = new JooqHealthCheck(
+                        cfg, dataSourceFactory.getValidationQuery().get());
+
+                environment.healthChecks().register(name, healthCheck);
+            }
+
+            jooqFactoryConfigurationMap.put(name, cfg);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}

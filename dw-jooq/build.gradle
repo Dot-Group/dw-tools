@@ -1,0 +1,14 @@
+plugins {
+	id 'java-library'
+}
+
+description = "Addon bundle for Dropwizard to support jOOQ for database access"
+
+dependencies {
+    api libs.jooq
+	implementation libs.dropwizardCore
+    implementation libs.dropwizardDb
+
+    testImplementation libs.testing
+}
+
